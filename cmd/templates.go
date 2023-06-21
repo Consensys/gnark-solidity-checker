@@ -52,12 +52,12 @@ func main() {
 	inputBytes, err := hex.DecodeString(inputHex)
 	checkErr(err, "decode input hex failed")
 
-	if len(inputBytes)%fpSize != 0 {
-		panic("inputBytes mod fpSize !=0")
+	if len(inputBytes)%fr.Bytes != 0 {
+		panic("inputBytes mod fr.Bytes !=0")
 	}
 
 	// convert public inputs
-	nbInputs := len(inputBytes) % fr.Bytes
+	nbInputs := len(inputBytes) / fr.Bytes
 	if nbInputs != nbPublicInputs {
 		panic("nbInputs != nbPublicInputs")
 	}
@@ -65,6 +65,7 @@ func main() {
 	for i := 0; i < nbInputs; i++ {
 		var e fr.Element
 		e.SetBytes(inputBytes[fr.Bytes*i : fr.Bytes*(i+1)])
+		input[i] = new(big.Int)
 		e.BigInt(input[i])
 	}
 
@@ -92,7 +93,7 @@ func main() {
 		fmt.Println("proof is valid")
 	} else {
 		fmt.Println("proof is invalid")
-		os.Exit(1)
+		os.Exit(42)
 	}
 }
 
@@ -106,8 +107,87 @@ func checkErr(err error, ctx string) {
 
 const tmplPlonK = `package main
 
+
+import (
+	"encoding/hex"
+	"fmt"
+	"math/big"
+	"os"
+
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/crypto"
+)
+
+const (
+	proofHex = "{{ .Proof }}"
+	inputHex = "{{ .PublicInputs }}"
+	nbPublicInputs = {{ .NbPublicInputs }}
+	fpSize = 4 * 8
+)
+
 func main() {
-	// TODO
+	const gasLimit uint64 = 4712388
+
+	// setup simulated backend
+	key, _ := crypto.GenerateKey()
+	auth, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+	checkErr(err, "init keyed transactor")
+
+	genesis := map[common.Address]core.GenesisAccount{
+		auth.From: {Balance: big.NewInt(1000000000000000000)}, // 1 Eth
+	}
+	backend := backends.NewSimulatedBackend(genesis, gasLimit)
+
+	// deploy verifier contract
+	_, _, verifierContract, err := DeployPlonkVerifier(auth, backend)
+	checkErr(err, "deploy verifier contract failed")
+	backend.Commit()
+
+
+	proofBytes, err := hex.DecodeString(proofHex)
+	checkErr(err, "decode proof hex failed")
+
+
+	inputBytes, err := hex.DecodeString(inputHex)
+	checkErr(err, "decode input hex failed")
+
+	if len(inputBytes)%fr.Bytes != 0 {
+		panic("inputBytes mod fr.Bytes !=0")
+	}
+
+	// convert public inputs
+	nbInputs := len(inputBytes) / fr.Bytes
+	if nbInputs != nbPublicInputs {
+		panic("nbInputs != nbPublicInputs")
+	}
+	var input [nbPublicInputs]*big.Int
+	for i := 0; i < nbInputs; i++ {
+		var e fr.Element
+		e.SetBytes(inputBytes[fr.Bytes*i : fr.Bytes*(i+1)])
+		input[i] = new(big.Int)
+		e.BigInt(input[i])
+	}
+
+
+	// call the contract
+	res, err := verifierContract.Verify(&bind.CallOpts{}, proofBytes[:], input[:])
+	checkErr(err, "calling verifier on chain gave error")
+	if res {
+		fmt.Println("proof is valid")
+	} else {
+		fmt.Println("proof is invalid")
+		os.Exit(42)
+	}
+}
+
+func checkErr(err error, ctx string) {
+	if err != nil {
+		panic(ctx + " " + err.Error())
+	}
 }
 
 `
