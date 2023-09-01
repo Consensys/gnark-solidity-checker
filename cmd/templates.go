@@ -4,9 +4,7 @@ const tmplGroth16 = `package main
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
-	"os"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -70,31 +68,24 @@ func main() {
 	}
 
 	// solidity contract inputs
-	var (
-		a [2]*big.Int
-		b [2][2]*big.Int
-		c [2]*big.Int
-	)
+	var proof [8]*big.Int
 
 	// proof.Ar, proof.Bs, proof.Krs
-	a[0] = new(big.Int).SetBytes(proofBytes[fpSize*0 : fpSize*1])
-	a[1] = new(big.Int).SetBytes(proofBytes[fpSize*1 : fpSize*2])
-	b[0][0] = new(big.Int).SetBytes(proofBytes[fpSize*2 : fpSize*3])
-	b[0][1] = new(big.Int).SetBytes(proofBytes[fpSize*3 : fpSize*4])
-	b[1][0] = new(big.Int).SetBytes(proofBytes[fpSize*4 : fpSize*5])
-	b[1][1] = new(big.Int).SetBytes(proofBytes[fpSize*5 : fpSize*6])
-	c[0] = new(big.Int).SetBytes(proofBytes[fpSize*6 : fpSize*7])
-	c[1] = new(big.Int).SetBytes(proofBytes[fpSize*7 : fpSize*8])
+	for i := 0; i < 8; i++ {
+		proof[i] = new(big.Int).SetBytes(proofBytes[fpSize*i : fpSize*(i+1)])
+	}
 
 	// call the contract
-	res, err := verifierContract.VerifyProof(&bind.CallOpts{}, a, b, c, input)
+	err = verifierContract.VerifyProof(&bind.CallOpts{}, proof, input)
 	checkErr(err, "calling verifier on chain gave error")
-	if res {
-		fmt.Println("proof is valid")
-	} else {
-		fmt.Println("proof is invalid")
-		os.Exit(42)
-	}
+
+	// compress proof
+	proofCompressed, err := verifierContract.CompressProof(&bind.CallOpts{}, proof)
+	checkErr(err, "compressing proof gave error")
+
+	// verify compressed proof
+	err = verifierContract.VerifyCompressedProof(&bind.CallOpts{}, proofCompressed, input)
+	checkErr(err, "calling verifier with compressed proof on chain gave error")
 }
 
 func checkErr(err error, ctx string) {
