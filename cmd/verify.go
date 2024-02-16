@@ -19,6 +19,7 @@ var (
 	fNbPublicInputs int    // number of public inputs
 	fGroth16        bool
 	fPlonK          bool
+	fNbCommitments  int // number of commitments
 )
 
 // verifyCmd represents the verify command
@@ -37,12 +38,18 @@ func runVerify(cmd *cobra.Command, args []string) {
 	}
 
 	if fGroth16 {
-		if err := generateMain(tmplGroth16, filepath.Join(fBaseDir, "main.go"), fProof, fPublicInputs, fNbPublicInputs); err != nil {
+		var template string
+		if fNbCommitments > 0 {
+			template = tmplGroth16Commitment
+		} else {
+			template = tmplGroth16
+		}
+		if err := generateMain(template, filepath.Join(fBaseDir, "main.go"), fProof, fPublicInputs, fNbPublicInputs, fNbCommitments); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 	} else if fPlonK {
-		if err := generateMain(tmplPlonK, filepath.Join(fBaseDir, "main.go"), fProof, fPublicInputs, fNbPublicInputs); err != nil {
+		if err := generateMain(tmplPlonK, filepath.Join(fBaseDir, "main.go"), fProof, fPublicInputs, fNbPublicInputs, fNbCommitments); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
@@ -97,7 +104,7 @@ func generateGoMod(filename string) error {
 	return tmpl.Execute(f, nil)
 }
 
-func generateMain(tmplStr, filename, proof, publicInputs string, nbPublicInputs int) error {
+func generateMain(tmplStr, filename, proof, publicInputs string, nbPublicInputs, fNbCommitments int) error {
 	fmt.Println("generating " + filename)
 	f, err := os.Create(filename)
 	if err != nil {
@@ -106,7 +113,13 @@ func generateMain(tmplStr, filename, proof, publicInputs string, nbPublicInputs 
 	}
 	defer f.Close()
 
-	tmpl, err := template.New("").Parse(tmplStr)
+	helpers := template.FuncMap{
+		"mul": func(a, b int) int {
+			return a * b
+		},
+	}
+
+	tmpl, err := template.New("").Funcs(helpers).Parse(tmplStr)
 	if err != nil {
 		return err
 	}
@@ -115,10 +128,12 @@ func generateMain(tmplStr, filename, proof, publicInputs string, nbPublicInputs 
 		Proof          string
 		PublicInputs   string
 		NbPublicInputs int
+		NbCommitments  int
 	}{
 		Proof:          proof,
 		PublicInputs:   publicInputs,
 		NbPublicInputs: nbPublicInputs,
+		NbCommitments:  fNbCommitments,
 	}
 
 	// execute template
@@ -141,4 +156,6 @@ func init() {
 	verifyCmd.Flags().BoolVar(&fPlonK, "plonk", false, "use plonk verification")
 
 	verifyCmd.MarkFlagsMutuallyExclusive("groth16", "plonk")
+
+	verifyCmd.Flags().IntVar(&fNbCommitments, "commitment", 0, "number of commitments in proof")
 }
