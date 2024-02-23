@@ -41,7 +41,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	}
 
 	// call solc
-	cmdSolc := exec.Command("solc", "--via-ir", "--evm-version", "paris", "--combined-json", "abi,bin", fSolFile, "-o", fBaseDir, "--overwrite")
+	cmdSolc := exec.Command("solc", "--evm-version", "paris", "--combined-json", "abi,bin", fSolFile, "-o", fBaseDir, "--overwrite")
 	fmt.Println("running solc: " + cmdSolc.String())
 	if out, err := cmdSolc.CombinedOutput(); err != nil {
 		fmt.Printf("error: %s\n", err.Error())
