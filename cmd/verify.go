@@ -37,24 +37,18 @@ func runVerify(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if fGroth16 {
-		var template string
-		if fNbCommitments > 0 {
-			template = tmplGroth16Commitment
-		} else {
-			template = tmplGroth16
-		}
-		if err := generateMain(template, filepath.Join(fBaseDir, "main.go"), fProof, fPublicInputs, fNbPublicInputs, fNbCommitments); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	} else if fPlonK {
-		if err := generateMain(tmplPlonK, filepath.Join(fBaseDir, "main.go"), fProof, fPublicInputs, fNbPublicInputs, fNbCommitments); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	} else {
+	var tmpl string
+	switch {
+	case fGroth16:
+		tmpl = tmplGroth16
+	case fPlonK:
+		tmpl = tmplPlonK
+	default:
 		fmt.Println("please specify either --groth16 or --plonk")
+		os.Exit(1)
+	}
+	if err := generateMain(tmpl, filepath.Join(fBaseDir, "main.go"), fProof, fPublicInputs, fNbPublicInputs, fNbCommitments); err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
 
