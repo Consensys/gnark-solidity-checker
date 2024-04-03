@@ -43,9 +43,11 @@ func main() {
 	proofBytes, err := hex.DecodeString(proofHex)
 	checkErr(err, "decode proof hex failed")
 
+	{{ if eq .NbCommitments 0 }}
 	if len(proofBytes) != fpSize*8 {
 		panic("proofBytes != fpSize*8")
 	}
+	{{ end }}
 
 	inputBytes, err := hex.DecodeString(inputHex)
 	checkErr(err, "decode input hex failed")
@@ -75,6 +77,7 @@ func main() {
 		proof[i] = new(big.Int).SetBytes(proofBytes[fpSize*i : fpSize*(i+1)])
 	}
 
+	{{ if eq .NbCommitments 0 }}
 	// call the contract
 	err = verifierContract.VerifyProof(&bind.CallOpts{}, proof, input)
 	checkErr(err, "calling verifier on chain gave error")
@@ -86,6 +89,39 @@ func main() {
 	// verify compressed proof
 	err = verifierContract.VerifyCompressedProof(&bind.CallOpts{}, proofCompressed, input)
 	checkErr(err, "calling verifier with compressed proof on chain gave error")
+	{{ else }}
+	// prepare commitments for calling
+	c := new(big.Int).SetBytes(proofBytes[fpSize*8 : fpSize*8+4])
+	commitmentCount := int(c.Int64())
+
+	if commitmentCount != {{ .NbCommitments }} {
+		panic("commitmentCount != .NbCommitments")
+	}
+
+	var commitments [{{mul 2 .NbCommitments}}]*big.Int
+	var commitmentPok [2]*big.Int
+
+	// commitments
+	for i := 0; i < 2*commitmentCount; i++ {
+		commitments[i] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+i*fpSize : fpSize*8+4+(i+1)*fpSize])
+	}
+
+	// commitmentPok
+	commitmentPok[0] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*commitmentCount*fpSize : fpSize*8+4+2*commitmentCount*fpSize+fpSize])
+	commitmentPok[1] = new(big.Int).SetBytes(proofBytes[fpSize*8+4+2*commitmentCount*fpSize+fpSize : fpSize*8+4+2*commitmentCount*fpSize+2*fpSize])
+
+	// call the contract
+	err = verifierContract.VerifyProof(&bind.CallOpts{}, proof, commitments, commitmentPok, input)
+	checkErr(err, "calling verifier on chain gave error")
+
+	// compress proof
+	compressed, err := verifierContract.CompressProof(&bind.CallOpts{}, proof, commitments, commitmentPok)
+	checkErr(err, "compressing proof gave error")
+
+	// verify compressed proof
+	err = verifierContract.VerifyCompressedProof(&bind.CallOpts{}, compressed.Compressed, compressed.CompressedCommitments, compressed.CompressedCommitmentPok, input)
+	checkErr(err, "calling verifier with compressed proof on chain gave error")
+	{{ end }}
 }
 
 func checkErr(err error, ctx string) {
@@ -188,8 +224,8 @@ const tmplGoMod = `module tmpsolidity
 go 1.20
 
 require (
-	github.com/consensys/gnark v0.7.2-0.20230620210714-0713c1dc4def
-	github.com/consensys/gnark-crypto v0.11.1-0.20230609175512-0ee617fa6d43
+	github.com/consensys/gnark v0.9.2-0.20240401222041-3b3c1e89a35f
+	github.com/consensys/gnark-crypto v0.12.2-0.20240215234832-d72fcb379d3e
 	github.com/ethereum/go-ethereum v1.12.0
 )
 
