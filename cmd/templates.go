@@ -226,7 +226,7 @@ go 1.22
 require (
 	github.com/consensys/gnark master
 	github.com/consensys/gnark-crypto master
-	github.com/ethereum/go-ethereum v1.14.8
+	github.com/gbotrel/go-ethereum master
 )
 
 `
