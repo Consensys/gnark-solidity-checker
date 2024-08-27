@@ -223,6 +223,7 @@ const tmplGoMod = `module tmpsolidity
 
 go 1.22
 
+
 require (
 	github.com/consensys/gnark master
 	github.com/consensys/gnark-crypto master
