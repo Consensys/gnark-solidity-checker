@@ -221,12 +221,12 @@ func checkErr(err error, ctx string) {
 
 const tmplGoMod = `module tmpsolidity
 
-go 1.20
+go 1.22
 
 require (
-	github.com/consensys/gnark v0.9.2-0.20240401222041-3b3c1e89a35f
-	github.com/consensys/gnark-crypto v0.12.2-0.20240215234832-d72fcb379d3e
-	github.com/ethereum/go-ethereum v1.12.0
+	github.com/consensys/gnark v0.10.0
+	github.com/consensys/gnark-crypto v0.13.0
+	github.com/ethereum/go-ethereum v1.14.8
 )
 
 `
