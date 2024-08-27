@@ -223,11 +223,12 @@ const tmplGoMod = `module tmpsolidity
 
 go 1.22
 
-
 require (
 	github.com/consensys/gnark master
-	github.com/consensys/gnark-crypto master
-	github.com/gbotrel/go-ethereum master
+	github.com/consensys/gnark-crypto v0.13.1-0.20240827160944-8031ce47e83b
+	github.com/ethereum/go-ethereum v0.0.0
 )
+
+replace github.com/ethereum/go-ethereum => github.com/gbotrel/go-ethereum v1.8.14-0.20240827161042-51b21f369b78
 
 `
